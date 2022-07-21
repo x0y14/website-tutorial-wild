@@ -1,0 +1,43 @@
+version: "3"
+services:
+  # 他のコンテナの更新を監視するコンテナ
+  watchtower:
+    container_name: watchtower
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    # 10秒ごとに`website-tutorial`のみを監視する
+    # -> https://containrrr.dev/watchtower/arguments/
+    command: --interval 10 website-tutorial
+    
+  # nginx (reverse proxy)
+  nginx:
+    container_name: nginx
+    image: nginx:latest
+    volumes:
+      - type: bind
+        source: ./nginx/templates
+        target: /etc/nginx/templates
+        read_only: false
+      - type: bind
+        source: ./nginx/logs
+        target: /etc/nginx/logs
+        read_only: false
+    # ./nginx/templates/*.templateに展開する
+    environment:
+      - NGINX_PORT=8090
+      - NGINX_MAIN_SERVICE_NAME=website-tutorial
+      - NGINX_MAIN_SERVICE_PORT=8080
+    ports:
+      - 80:8090 # 外部80で受けて内部8090に流してからwebsite:8080にフォワード
+    networks:
+      - internal # サービス名で接続できるように(なくても良い?)
+
+  website-tutorial:
+    container_name: website-tutorial
+    image: x0y14/website-tutorial:latest
+    networks:
+      - internal # サービス名で接続できるように
+
+networks:
+  internal:
